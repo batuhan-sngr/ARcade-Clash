@@ -21,8 +21,17 @@ pygame.display.set_caption("Fighter Game")
 
 # Load images
 background = pygame.image.load("images/BG_1.png")
-player1_sheet = pygame.image.load("images/spriteSheet1.png")
-player2_sheet = pygame.image.load("images/spriteSheet2.png")
+idle_sheet = pygame.image.load("images/Brawler Girl/idle.png")
+hurt_sheet = pygame.image.load("images/Brawler Girl/hurt.png")
+punch_sheet = pygame.image.load("images/Brawler Girl/punch.png")
+kick_sheet = pygame.image.load("images/Brawler Girl/kick.png")
+
+# Action frames
+idle_frames = [0, 1, 2, 3]  
+hurt_frames = [0, 1]  
+punch_frames = [0, 1, 2]  
+kick_frames = [0, 1, 2, 3, 4]
+
 
 # Player positions
 player1_x, player1_y = 100, 300
@@ -57,7 +66,8 @@ player1_health = 100
 player1_super_attack_count = 0
 super_attack_threshold = 3
 damage_per_punch = 18
-damage_per_super_attack = 35
+damage_per_kick = 35
+damage_per_hurt = 18
 
 # Projectile system
 projectile_speed = 5
@@ -88,14 +98,14 @@ while True:
     # Get hand positions
     if results.multi_hand_landmarks:
         for hand_landmarks in results.multi_hand_landmarks:
-            thumb_tip_x = int(hand_landmarks.landmark[THUMB_TIP].x * screen_width)
-            thumb_tip_y = int(hand_landmarks.landmark[THUMB_TIP].y * screen_height)
-            index_finger_tip_x = int(hand_landmarks.landmark[INDEX_FINGER_TIP].x * screen_width)
-            index_finger_tip_y = int(hand_landmarks.landmark[INDEX_FINGER_TIP].y * screen_height)
-            pinky_tip_x = int(hand_landmarks.landmark[PINKY_TIP].x * screen_width)
-            pinky_tip_y = int(hand_landmarks.landmark[PINKY_TIP].y * screen_height)
+            thumb_tip_y = hand_landmarks.landmark[THUMB_TIP].y * screen_height
+            index_finger_tip_y = hand_landmarks.landmark[INDEX_FINGER_TIP].y * screen_height
+            pinky_tip_y = hand_landmarks.landmark[PINKY_TIP].y * screen_height
+            for landmark in hand_landmarks.landmark:
+                x, y = int(landmark.x * camera_width), int(landmark.y * camera_height)
+                pygame.draw.circle(small_frame, (0, 255, 0), (x, y), 5)
 
-             # Check hand gestures and trigger animations
+            # Check hand gestures and trigger animations
             if thumb_tip_y > index_finger_tip_y and thumb_tip_y > pinky_tip_y and player1_action != "punch":
                 player1_action = "shield"
             elif index_finger_tip_y > thumb_tip_y and index_finger_tip_y > pinky_tip_y and player1_action != "shield":
@@ -104,29 +114,8 @@ while True:
                 player1_action = "superpower"
             elif player1_action not in ["punch", "superpower"]:
                 player1_action = "idle"
-
-            # Determine hand shape
-            if thumb_tip_y < index_finger_tip_y and thumb_tip_y < pinky_tip_y:
-                hand_shape = "fist"
-            elif thumb_tip_y > index_finger_tip_y and thumb_tip_y > pinky_tip_y:
-                hand_shape = "all fingers up"
-            elif thumb_tip_x < index_finger_tip_x and thumb_tip_x < pinky_tip_x:
-                hand_shape = "pinky finger"
-            elif thumb_tip_x > index_finger_tip_x and thumb_tip_x > pinky_tip_x:
-                hand_shape = "index finger"
-            else:
-                hand_shape = "unknown"
-
-            # Draw hand landmarks on the screen
-            for lm in hand_landmarks.landmark:
-                lm_x = int(lm.x * screen_width)
-                lm_y = int(lm.y * screen_height)
-                pygame.draw.circle(screen, (255, 0, 0), (lm_x, lm_y), 5)
-
-            # Display hand shape
-            font = pygame.font.Font(None, 36)
-            text = font.render(f"Hand Shape: {hand_shape}", True, (0, 0, 0))
-            screen.blit(text, (10, 10))
+    print("Player Action:", player1_action)
+    print("Player Frame:", player1_frame)
 
     # Resize the camera window
     small_frame = cv2.resize(frame, (camera_width, camera_height))
@@ -137,23 +126,28 @@ while True:
     if animation_cooldown == 0:
         if player1_action == "idle":
             player1_frame = (player1_frame + 1) % len(idle_frames)
+            current_sheet = idle_sheet
+        elif player1_action == "hurt":
+            player1_frame = (player1_frame + 1) % len(hurt_frames)
+            current_sheet = hurt_sheet
+            # Deal damage to the opponent
+            player1_health = max(0, player1_health - damage_per_hurt)
+            animation_cooldown = animation_duration
         elif player1_action == "punch":
             player1_frame = (player1_frame + 1) % len(punch_frames)
+            current_sheet = punch_sheet
             # Deal damage to the opponent
             player1_health = max(0, player1_health - damage_per_punch)
             animation_cooldown = animation_duration
-        elif player1_action == "shield":
-            player1_frame = shield_frame
-            animation_cooldown = animation_duration
-        elif player1_action == "superpower" and player1_super_attack_count >= super_attack_threshold:
-            player1_frame = (player1_frame + 1) % len(super_attack_frames)
+        elif player1_action == "kick" and player1_super_attack_count >= super_attack_threshold:
+            player1_frame = (player1_frame + 1) % len(kick_frames)
+            current_sheet = kick_sheet
             # Deal damage to the opponent
-            player1_health = max(0, player1_health - damage_per_super_attack)
+            player1_health = max(0, player1_health - damage_per_kick)
             animation_cooldown = animation_duration
 
-        if player1_action in ["punch", "superpower"]:
-            # Set cooldown for the next action
-            animation_cooldown = animation_duration
+        # Set cooldown for the next action
+        animation_cooldown = animation_duration
 
     # Draw background and players with actions
     screen.fill((255, 255, 255))  # Fill with white to clear previous frames
@@ -161,25 +155,50 @@ while True:
 
     # Draw player1 with action
     if player1_action == "idle":
-        player1_rect = pygame.Rect(idle_frames[player1_frame] * 64, 0, 64, 64)
-        player1_rect.inflate_ip(20, 20)  # Increase player size slightly
-        player1_rect.clamp_ip(player1_sheet.get_rect())
-        screen.blit(player1_sheet.subsurface(player1_rect), (player1_x - 10, player1_y - 10))
+        player1_rect = pygame.Rect(idle_frames[player1_frame] * 64, 0, 64, 47)
+        player1_rect.inflate_ip(20, 15)  # Increase player size slightly
+
+        # Ensure the player1_rect stays within the surface area
+        player1_rect.left = max(0, player1_rect.left)
+        player1_rect.right = min(idle_sheet.get_width(), player1_rect.right)
+        player1_rect.top = max(0, player1_rect.top)
+        player1_rect.bottom = min(idle_sheet.get_height(), player1_rect.bottom)
+
+        screen.blit(idle_sheet.subsurface(player1_rect), (player1_x - 10, player1_y - 10))
     elif player1_action == "punch":
-        player1_rect = pygame.Rect(punch_frames[player1_frame] * 64, 0, 64, 64)
-        player1_rect.inflate_ip(20, 20)
-        player1_rect.clamp_ip(player1_sheet.get_rect())
-        screen.blit(player1_sheet.subsurface(player1_rect), (player1_x - 10, player1_y - 10))
-    elif player1_action == "shield":
-        player1_rect = pygame.Rect(shield_frame * 64, 0, 64, 64)
-        player1_rect.inflate_ip(20, 20)
-        player1_rect.clamp_ip(player1_sheet.get_rect())
-        screen.blit(player1_sheet.subsurface(player1_rect), (player1_x - 10, player1_y - 10))
-    elif player1_action == "superpower":
-        player1_rect = pygame.Rect(super_attack_frames[player1_frame] * 64, 0, 64, 64)
-        player1_rect.inflate_ip(20, 20)
-        player1_rect.clamp_ip(player1_sheet.get_rect())
-        screen.blit(player1_sheet.subsurface(player1_rect), (player1_x - 10, player1_y - 10))
+        player1_rect = pygame.Rect(punch_frames[player1_frame] * 64, 0, 64, 47)
+        player1_rect.inflate_ip(20, 15)
+
+        # Ensure the player1_rect stays within the surface area
+        player1_rect.left = max(0, player1_rect.left)
+        player1_rect.right = min(punch_sheet.get_width(), player1_rect.right)
+        player1_rect.top = max(0, player1_rect.top)
+        player1_rect.bottom = min(punch_sheet.get_height(), player1_rect.bottom)
+
+        screen.blit(punch_sheet.subsurface(player1_rect), (player1_x - 10, player1_y - 10))
+    elif player1_action == "hurt":
+        player1_rect = pygame.Rect(hurt_frames[player1_frame] * 64, 0, 64, 47)
+        player1_rect.inflate_ip(20, 15)
+
+        # Ensure the player1_rect stays within the surface area
+        player1_rect.left = max(0, player1_rect.left)
+        player1_rect.right = min(hurt_sheet.get_width(), player1_rect.right)
+        player1_rect.top = max(0, player1_rect.top)
+        player1_rect.bottom = min(hurt_sheet.get_height(), player1_rect.bottom)
+
+        screen.blit(hurt_sheet.subsurface(player1_rect), (player1_x - 10, player1_y - 10))
+    elif player1_action == "kick":
+        player1_rect = pygame.Rect(kick_frames[player1_frame] * 64, 0, 64, 47)
+        player1_rect.inflate_ip(20, 15)
+
+        # Ensure the player1_rect stays within the surface area
+        player1_rect.left = max(0, player1_rect.left)
+        player1_rect.right = min(kick_sheet.get_width(), player1_rect.right)
+        player1_rect.top = max(0, player1_rect.top)
+        player1_rect.bottom = min(kick_sheet.get_height(), player1_rect.bottom)
+
+        screen.blit(kick_sheet.subsurface(player1_rect), (player1_x - 10, player1_y - 10))
+
 
     # Draw camera feed in the left bottom corner
     screen.blit(small_frame, (0, screen_height - camera_height))
