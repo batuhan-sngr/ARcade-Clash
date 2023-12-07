@@ -2,268 +2,260 @@ import cv2
 import mediapipe as mp
 import pygame
 import sys
+import os
 import random
+import math
 
-# Initialize video capture
-cap = cv2.VideoCapture(0)  # 0 represents the default camera, you may need to change it based on your setup
+class FighterGame:
+    def __init__(self):
+        # Initialize video capture
+        self.cap = cv2.VideoCapture(1)  # 0 represents the default camera, you may need to change it based on your setup
 
-# Initialize Mediapipe
-mp_hands = mp.solutions.hands
-hands = mp_hands.Hands()
+        # Initialize Mediapipe
+        self.mp_drawing = mp.solutions.drawing_utils
+        self.mp_drawing_styles = mp.solutions.drawing_styles
+        self.mp_hands = mp.solutions.hands
+        self.hands = self.mp_hands.Hands()
 
-# Initialize Pygame
-pygame.init()
+        # Initialize Pygame
+        pygame.init()
 
-# Set up display
-screen_width, screen_height = 800, 600
-screen = pygame.display.set_mode((screen_width, screen_height), pygame.RESIZABLE)
-pygame.display.set_caption("Fighter Game")
+        # Set up display
+        self.screen_width, self.screen_height = 800, 600
+        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.RESIZABLE)
+        pygame.display.set_caption("Fighter Game")
 
-# Load images
-background = pygame.image.load("images/BG_1.png")
-idle_sheet = pygame.image.load("images/Brawler Girl/idle.png")
-hurt_sheet = pygame.image.load("images/Brawler Girl/hurt.png")
-punch_sheet = pygame.image.load("images/Brawler Girl/punch.png")
-kick_sheet = pygame.image.load("images/Brawler Girl/kick.png")
+        self.background = pygame.image.load("images/background.png")
 
-# Action frames
-idle_frames = [0, 1, 2, 3]  
-hurt_frames = [0, 1]  
-punch_frames = [0, 1, 2]  
-kick_frames = [0, 1, 2, 3, 4]
-
-
-# Player positions
-player1_x, player1_y = 100, 300
-player2_x, player2_y = 600, 300
-
-# Player size
-player_size = (64, 64)
-
-# Player speed
-player_speed = 2
-
-# Hand landmarks indices
-THUMB_TIP = 4
-INDEX_FINGER_TIP = 8
-PINKY_TIP = 20
-
-# Animation frames and counters
-idle_frames = [0, 1, 2, 3, 4, 5]
-punch_frames = [6, 7, 8]
-shield_frame = 9
-damage_frame = 10
-super_attack_frames = [11, 12, 13]
+        # Load frames for each action
+        self.idle_frames_player = self.load_frames("Brawler Girl", "idle", 4)
+        self.hurt_frames_player = self.load_frames("Brawler Girl", "hurt", 2)
+        self.punch_frames_player = self.load_frames("Brawler Girl", "punch", 3)
+        self.kick_frames_player = self.load_frames("Brawler Girl", "kick", 5)
+        self.walk_frames_player = self.load_frames("Brawler Girl", "walk", 10)
+        
+        # Load frames for each action for Enemy (Enemy Punk)
+        self.idle_frames_enemy = self.load_frames("Enemy Punk", "idle", 4)
+        self.hurt_frames_enemy = self.load_frames("Enemy Punk", "hurt", 4)
+        self.punch_frames_enemy = self.load_frames("Enemy Punk", "punch", 3)
+        self.walk_frames_enemy = self.load_frames("Enemy Punk", "walk", 4)
 
 
-player1_action = "idle"
-player1_frame = 0
-player1_super_attack_count = 0
-super_attack_threshold = 3  # Number of successful hits required for superpower
 
-# Health system
-player1_health = 100
-player1_super_attack_count = 0
-super_attack_threshold = 3
-damage_per_punch = 18
-damage_per_kick = 35
-damage_per_hurt = 18
+        # Player attributes
+        self.player1_action = "idle"
+        self.player1_frame = 0
+        self.player1_health = 100
+        self.player1_rect = pygame.Rect(0, 0, 64, 47)  # Initialize player1_rect
+        self.player1_x, self.player1_y = 100, 300
+        self.animation_cooldown_player = 0
 
-# Projectile system
-projectile_speed = 5
-projectiles = []
+        # Enemy attributes
+        self.enemy_action = "idle"
+        self.enemy_frame = 0
+        self.enemy_health = 100
+        self.enemy_rect = pygame.Rect(0, 0, 64, 47)  # Initialize enemy_rect
+        self.enemy_x, self.enemy_y = 600, 300
+        self.animation_cooldown_enemy = 0
 
-# Resize factors for the camera window
-camera_width = 200
-camera_height = 150
+        # Player speed
+        self.player_speed = 2
 
-# Animation duration and cooldown
-animation_duration = 10  # Adjust as needed
-animation_cooldown = 0
+        # Hand landmarks indices
+        self.THUMB_TIP = 4
+        self.THUMB_MCP = 2
+        self.THUMB_CMC = 1
+        self.INDEX_FINGER_TIP = 8
+        self.INDEX_FINGER_PIP = 6
+        self.INDEX_FINGER_CMC = 5
+        self.PINKY_TIP = 20
+        self.PINKY_DIP = 19
+        self.WRIST = 0
 
-# Main game loop
-while True:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-        elif event.type == pygame.VIDEORESIZE:
-            screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
+        # Damage values
+        self.damage_per_punch = 18
+        self.damage_per_kick = 35
+        self.damage_per_hurt = 18
 
-    # Get hand landmarks
-    _, frame = cap.read()
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    results = hands.process(frame_rgb)
+        # Projectile system
+        self.projectile_speed = 5
+        self.projectiles = []
 
-    # Get hand positions
-    if results.multi_hand_landmarks:
-        for hand_landmarks in results.multi_hand_landmarks:
-            thumb_tip_y = hand_landmarks.landmark[THUMB_TIP].y * screen_height
-            index_finger_tip_y = hand_landmarks.landmark[INDEX_FINGER_TIP].y * screen_height
-            pinky_tip_y = hand_landmarks.landmark[PINKY_TIP].y * screen_height
-            for landmark in hand_landmarks.landmark:
-                x, y = int(landmark.x * camera_width), int(landmark.y * camera_height)
-                pygame.draw.circle(small_frame, (0, 255, 0), (x, y), 5)
+        # Resize factors for the camera window
+        self.camera_width = 200
+        self.camera_height = 150
 
-            # Check hand gestures and trigger animations
-            if thumb_tip_y > index_finger_tip_y and thumb_tip_y > pinky_tip_y and player1_action != "punch":
-                player1_action = "shield"
-            elif index_finger_tip_y > thumb_tip_y and index_finger_tip_y > pinky_tip_y and player1_action != "shield":
-                player1_action = "punch"
-            elif pinky_tip_y > thumb_tip_y and pinky_tip_y > index_finger_tip_y and player1_super_attack_count >= super_attack_threshold and player1_action != "shield" and player1_action != "punch":
-                player1_action = "superpower"
-            elif player1_action not in ["punch", "superpower"]:
-                player1_action = "idle"
-    print("Player Action:", player1_action)
-    print("Player Frame:", player1_frame)
+        # Animation duration and cooldown
+        self.animation_duration = 0.7  # Adjust as needed
+        self.animation_cooldown = 0
 
-    # Resize the camera window
-    small_frame = cv2.resize(frame, (camera_width, camera_height))
-    small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
-    small_frame = pygame.surfarray.make_surface(small_frame)
+        # Initialize animation variables for player and enemy
+        self.current_action_player = "idle"
+        self.current_frame_player = 0
+        self.action_counter_player = 0
 
-    # Update player animation frames
-    if animation_cooldown == 0:
-        if player1_action == "idle":
-            player1_frame = (player1_frame + 1) % len(idle_frames)
-            current_sheet = idle_sheet
-        elif player1_action == "hurt":
-            player1_frame = (player1_frame + 1) % len(hurt_frames)
-            current_sheet = hurt_sheet
-            # Deal damage to the opponent
-            player1_health = max(0, player1_health - damage_per_hurt)
-            animation_cooldown = animation_duration
-        elif player1_action == "punch":
-            player1_frame = (player1_frame + 1) % len(punch_frames)
-            current_sheet = punch_sheet
-            # Deal damage to the opponent
-            player1_health = max(0, player1_health - damage_per_punch)
-            animation_cooldown = animation_duration
-        elif player1_action == "kick" and player1_super_attack_count >= super_attack_threshold:
-            player1_frame = (player1_frame + 1) % len(kick_frames)
-            current_sheet = kick_sheet
-            # Deal damage to the opponent
-            player1_health = max(0, player1_health - damage_per_kick)
-            animation_cooldown = animation_duration
+        self.current_action_enemy = "idle"
+        self.current_frame_enemy = 0
+        self.action_counter_enemy = 0
 
-        # Set cooldown for the next action
-        animation_cooldown = animation_duration
+        # Update actions_info_player and actions_info_enemy with the loaded frames
+        self.actions_info_player = {
+            "idle": {"frames": self.idle_frames_player, "cooldown": self.animation_duration},
+            "punch": {"frames": self.punch_frames_player, "cooldown": self.animation_duration},
+            "kick": {"frames": self.kick_frames_player, "cooldown": self.animation_duration},
+            "hurt": {"frames": self.hurt_frames_player, "cooldown": self.animation_duration},
+            "walk": {"frames": self.walk_frames_player, "cooldown": self.animation_duration},
+        }
 
-    # Draw background and players with actions
-    screen.fill((255, 255, 255))  # Fill with white to clear previous frames
-    screen.blit(background, (0, 0))
-
-    # Draw player1 with action
-    if player1_action == "idle":
-        player1_rect = pygame.Rect(idle_frames[player1_frame] * 64, 0, 64, 47)
-        player1_rect.inflate_ip(20, 15)  # Increase player size slightly
-
-        # Ensure the player1_rect stays within the surface area
-        player1_rect.left = max(0, player1_rect.left)
-        player1_rect.right = min(idle_sheet.get_width(), player1_rect.right)
-        player1_rect.top = max(0, player1_rect.top)
-        player1_rect.bottom = min(idle_sheet.get_height(), player1_rect.bottom)
-
-        screen.blit(idle_sheet.subsurface(player1_rect), (player1_x - 10, player1_y - 10))
-    elif player1_action == "punch":
-        player1_rect = pygame.Rect(punch_frames[player1_frame] * 64, 0, 64, 47)
-        player1_rect.inflate_ip(20, 15)
-
-        # Ensure the player1_rect stays within the surface area
-        player1_rect.left = max(0, player1_rect.left)
-        player1_rect.right = min(punch_sheet.get_width(), player1_rect.right)
-        player1_rect.top = max(0, player1_rect.top)
-        player1_rect.bottom = min(punch_sheet.get_height(), player1_rect.bottom)
-
-        screen.blit(punch_sheet.subsurface(player1_rect), (player1_x - 10, player1_y - 10))
-    elif player1_action == "hurt":
-        player1_rect = pygame.Rect(hurt_frames[player1_frame] * 64, 0, 64, 47)
-        player1_rect.inflate_ip(20, 15)
-
-        # Ensure the player1_rect stays within the surface area
-        player1_rect.left = max(0, player1_rect.left)
-        player1_rect.right = min(hurt_sheet.get_width(), player1_rect.right)
-        player1_rect.top = max(0, player1_rect.top)
-        player1_rect.bottom = min(hurt_sheet.get_height(), player1_rect.bottom)
-
-        screen.blit(hurt_sheet.subsurface(player1_rect), (player1_x - 10, player1_y - 10))
-    elif player1_action == "kick":
-        player1_rect = pygame.Rect(kick_frames[player1_frame] * 64, 0, 64, 47)
-        player1_rect.inflate_ip(20, 15)
-
-        # Ensure the player1_rect stays within the surface area
-        player1_rect.left = max(0, player1_rect.left)
-        player1_rect.right = min(kick_sheet.get_width(), player1_rect.right)
-        player1_rect.top = max(0, player1_rect.top)
-        player1_rect.bottom = min(kick_sheet.get_height(), player1_rect.bottom)
-
-        screen.blit(kick_sheet.subsurface(player1_rect), (player1_x - 10, player1_y - 10))
+        self.actions_info_enemy = {
+            "idle": {"frames": self.idle_frames_enemy, "cooldown": self.animation_duration},
+            "punch": {"frames": self.punch_frames_enemy, "cooldown": self.animation_duration},
+            "hurt": {"frames": self.hurt_frames_enemy, "cooldown": self.animation_duration},
+            "walk": {"frames": self.walk_frames_enemy, "cooldown": self.animation_duration},
+        }
 
 
-    # Draw camera feed in the left bottom corner
-    screen.blit(small_frame, (0, screen_height - camera_height))
+    def load_frames(self, character, action, frame_count):
+        frames = []
+        for i in range(1, frame_count + 1):
+            frame_path = os.path.join("images", character, action, f"{action}{i}.png")
+            frame = pygame.image.load(frame_path).convert_alpha()
+            frames.append(frame)
+        return frames
 
-    # Draw health bar for player1
-    pygame.draw.rect(screen, (255, 0, 0), (screen_width - 120, 10, 100, 20))  # Red background
-    pygame.draw.rect(
-        screen,
-        (0, 255, 0),
-        (screen_width - 120, 10, max(0, (player1_health / 100) * 100), 20),
-    )  # Green health bar
-    # Display health text
-    font = pygame.font.Font(None, 36)
-    text = font.render(f"Health: {player1_health}", True, (0, 0, 0))
-    screen.blit(text, (screen_width - 200, 10))
+    def extract_frame(self, action, frame_index, is_player=True):
+        if is_player:
+            info = self.actions_info_player.get(action)
+        else:
+            info = self.actions_info_enemy.get(action)
 
-    # Generate projectiles
-    if random.randint(0, 100) < 5:  # Adjust the probability based on your preference
-        projectile = pygame.Rect(screen_width - 20, random.randint(0, screen_height - 20), 10, 10)
-        projectiles.append(projectile)
+        if info:
+            frames = info.get("frames")
+            if frames:
+                return frames[frame_index % len(frames)]  # Ensure the index is within the frame count
+            else:
+                print(f"Error: No frames found for action - {action}")
+        else:
+            print(f"Error: Unknown action - {action}")
+        return None
 
-    # Move projectiles
-    for projectile in projectiles:
-        projectile.x -= projectile_speed
+    def calculate_distance(self, point1, point2):
+        return math.sqrt((point2[0] - point1[0])**2 + (point2[1] - point1[1])**2)
 
-        # Check if the projectile hits the player1
-        if player1_rect.colliderect(projectile):
-            if player1_action != "shield":
-                player1_health = max(0, player1_health - 20)
-            projectiles.remove(projectile)
+    def run_game(self):
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.VIDEORESIZE:
+                    self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
 
-    # Draw projectiles
-    for projectile in projectiles:
-        pygame.draw.rect(screen, (0, 0, 255), projectile)
+            _, frame = self.cap.read()
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results = self.hands.process(frame_rgb)
 
-    # Remove projectiles that go off the screen
-    projectiles = [p for p in projectiles if p.x > 0]
+            frame.flags.writeable = True
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
-    # Optional: Add a delay to control the speed of the game
-    pygame.time.delay(20)
+            if results.multi_hand_landmarks:
+                for hand_landmarks in results.multi_hand_landmarks:
+                    thumb_tip = (hand_landmarks.landmark[self.THUMB_TIP].x, hand_landmarks.landmark[self.THUMB_TIP].y)
+                    thumb_mcp = (hand_landmarks.landmark[self.THUMB_MCP].x, hand_landmarks.landmark[self.THUMB_MCP].y)
+                    thumb_cmc = (hand_landmarks.landmark[self.THUMB_CMC].x, hand_landmarks.landmark[self.THUMB_CMC].y)
+                    index_finger_tip = (hand_landmarks.landmark[self.INDEX_FINGER_TIP].x, hand_landmarks.landmark[self.INDEX_FINGER_TIP].y)
+                    index_finger_cmc = (hand_landmarks.landmark[self.INDEX_FINGER_CMC].x, hand_landmarks.landmark[self.INDEX_FINGER_CMC].y)
+                    index_finger_pip = (hand_landmarks.landmark[self.INDEX_FINGER_PIP].x, hand_landmarks.landmark[self.INDEX_FINGER_PIP].y)
+                    pinky_tip = (hand_landmarks.landmark[self.PINKY_TIP].x, hand_landmarks.landmark[self.PINKY_TIP].y)
+                    pinky_dip = (hand_landmarks.landmark[self.PINKY_DIP].x, hand_landmarks.landmark[self.PINKY_DIP].y)
+                    wrist = (hand_landmarks.landmark[self.WRIST].x, hand_landmarks.landmark[self.WRIST].y)
 
-    # Update display
-    pygame.display.flip()
+                    thumb_tip_to_index_cmc_distance = self.calculate_distance(thumb_tip, index_finger_cmc)
+                    index_tip_to_wrist_distance = self.calculate_distance(index_finger_tip, wrist)
+                    index_finger_tip_to_pinky_tip_distance = self.calculate_distance(index_finger_tip, pinky_tip)
+                    pinky_tip_to_dip_distance = self.calculate_distance(pinky_tip, pinky_dip)
+                    pinky_tip_to_wrist_distance = self.calculate_distance(pinky_dip, wrist)
 
-    # Generate projectiles
-    if random.randint(0, 100) < 5:  # Adjust the probability based on your preference
-        projectile = pygame.Rect(player2_x + player_size[0], player2_y, 10, 10)
-        projectiles.append(projectile)
+                    if thumb_tip_to_index_cmc_distance > 0.5 and index_tip_to_wrist_distance > 0.2:
+                        self.player1_action = "walk"
+                    elif pinky_tip_to_wrist_distance > 0.3 and index_finger_tip_to_pinky_tip_distance < 0.25:
+                        self.player1_action = "punch"
+                    elif thumb_tip[1] > thumb_mcp[1] and pinky_tip[1] > pinky_dip[1] and pinky_tip_to_dip_distance > 0.1 and pinky_tip_to_dip_distance < 0.25:
+                        self.player1_action = "kick"
+                    elif all(lm.y < thumb_tip[1] for lm in hand_landmarks.landmark[1:]):
+                        self.player1_action = "idle"
 
-    # Move projectiles
-    for projectile in projectiles:
-        projectile.x -= projectile_speed
+                    self.mp_drawing.draw_landmarks(
+                        frame,
+                        hand_landmarks,
+                        self.mp_hands.HAND_CONNECTIONS,
+                        self.mp_drawing_styles.get_default_hand_landmarks_style(),
+                        self.mp_drawing_styles.get_default_hand_connections_style())
+            else:
+                self.player1_action = "idle"
+                print("No hands detected.")
 
-        # Check if the projectile hits the player1
-        if player1_rect.colliderect(projectile):
-            if player1_action != "shield":
-                player1_health = max(0, player1_health - 20)
-            projectiles.remove(projectile)
+            print("Player Action:", self.player1_action)
+            print("Player Frame:", self.player1_frame)
 
-    # Draw projectiles
-    for projectile in projectiles:
-        pygame.draw.rect(screen, (0, 0, 255), projectile)
+            small_frame = cv2.resize(frame, (self.camera_width, self.camera_height))
+            small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+            small_frame = pygame.surfarray.make_surface(small_frame)
 
-    # Remove projectiles that go off the screen
-    projectiles = [p for p in projectiles if p.x > 0]
+            if self.player1_action != self.current_action_player:
+                # Reset the animation variables when a new action is detected
+                self.current_action_player = self.player1_action
+                self.current_frame_player = 0
+                self.action_counter_player = 0
 
-    # Optional: Add a delay to control the speed of the game
-    pygame.time.delay(20)
+            # Update player animation frames
+            if self.animation_cooldown_player == 0:
+                self.current_frame_player = (self.current_frame_player + 1) % len(self.actions_info_player[self.player1_action]["frames"])
+
+            # Handle player animation cooldown
+            if self.animation_cooldown_player > 0:
+                self.animation_cooldown_player -= 1
+
+            # Update enemy animation frames
+            if self.animation_cooldown_enemy == 0:
+                if self.enemy_action == "idle":
+                    self.enemy_frame = (self.enemy_frame + 1) % len(self.idle_frames_enemy)
+                else:
+                    self.enemy_frame = (self.enemy_frame + 1) % len(self.actions_info_enemy[self.enemy_action]["frames"])
+
+            # Handle enemy animation cooldown
+            if self.animation_cooldown_enemy > 0:
+                self.animation_cooldown_enemy -= 1
+
+            self.screen.fill((36, 36, 36))
+            self.screen.blit(self.background, (0, 130))
+
+            # Draw player1 with action
+            if self.player1_rect:
+                current_frame_player = self.extract_frame(self.player1_action, self.current_frame_player, is_player=True)
+                self.screen.blit(current_frame_player, (self.player1_x - 10, self.player1_y - 10))
+
+            self.screen.blit(small_frame, (0, self.screen_height - self.camera_height))
+
+            pygame.draw.rect(self.screen, (255, 0, 0), (self.screen_width - 120, 10, 100, 20))
+            pygame.draw.rect(
+                self.screen,
+                (0, 255, 0),
+                (self.screen_width - 120, 10, max(0, (self.player1_health / 100) * 100), 20),
+            )
+            font = pygame.font.Font(None, 36)
+            text = font.render(f"Health: {self.player1_health}", True, (0, 0, 0))
+            self.screen.blit(text, (self.screen_width - 200, 10))
+
+            # Draw enemy with action
+            if self.enemy_rect:
+                current_frame = self.extract_frame(self.enemy_action, self.enemy_frame, is_player=False)
+                self.screen.blit(current_frame, (self.enemy_x - 10, self.enemy_y - 10))
+
+
+            pygame.time.delay(20)
+            pygame.display.flip()
+
+if __name__ == "__main__":
+    game = FighterGame()
+    game.run_game()

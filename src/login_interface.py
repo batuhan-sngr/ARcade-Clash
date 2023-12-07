@@ -1,30 +1,63 @@
+import customtkinter as ctk
 import tkinter as tk
-from tkinter import ttk
 from getpass import getpass
 import sqlite3
+from fighter_game import FighterGame
 
 class LoginApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Login Page")
+        self.root.geometry("1300x700")
+        self.center_window()
+        self.root.configure(bg="#99CCFF") # Set appearance mode to dark
 
-        self.label_username = ttk.Label(root, text="Username:")
-        self.label_username.grid(row=0, column=0, padx=10, pady=10, sticky="e")
+        self.create_widgets()
 
-        self.entry_username = ttk.Entry(root)
-        self.entry_username.grid(row=0, column=1, padx=10, pady=10)
+        # Initialize StringVar for storing the remembered username
+        self.remembered_username = tk.StringVar()
+        self.load_remembered_username()
 
-        self.label_password = ttk.Label(root, text="Password:")
-        self.label_password.grid(row=1, column=0, padx=10, pady=10, sticky="e")
+    def center_window(self):
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        x_center = (screen_width - 1300) // 2
+        y_center = (screen_height - 700) // 2
+        self.root.geometry(f"1300x700+{x_center}+{y_center}")
+    
+    def create_users_table(self):
+        # Connect to the SQLite database
+        conn = sqlite3.connect("user_database.db")
+        cursor = conn.cursor()
 
-        self.entry_password = ttk.Entry(root, show="*")
-        self.entry_password.grid(row=1, column=1, padx=10, pady=10)
+        # Create the "users" table if it doesn't exist
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY,
+                username TEXT NOT NULL,
+                password TEXT NOT NULL
+            )
+        """)
 
-        self.button_login = ttk.Button(root, text="Login", command=self.login)
-        self.button_login.grid(row=2, column=0, pady=10, padx=5, sticky="e")
+        # Commit changes and close the database connection
+        conn.commit()
+        conn.close()
 
-        self.button_signup = ttk.Button(root, text="Signup", command=self.signup)
-        self.button_signup.grid(row=2, column=1, pady=10, padx=5, sticky="w")
+    def load_remembered_username(self):
+        # Load the remembered username from a file or any other persistent storage
+        # For simplicity, let's use a file named "remembered_username.txt"
+        try:
+            with open("remembered_username.txt", "r") as file:
+                remembered_username = file.read().strip()
+                if remembered_username:
+                    self.remembered_username.set(remembered_username)
+        except FileNotFoundError:
+            pass
+
+    def save_remembered_username(self, username):
+        # Save the remembered username to a file or any other persistent storage
+        # For simplicity, let's use a file named "remembered_username.txt"
+        with open("remembered_username.txt", "w") as file:
+            file.write(username)
 
     def login(self):
         username = self.entry_username.get()
@@ -49,6 +82,8 @@ class LoginApp:
             print("Invalid username or password. Please try again.")
 
     def signup(self):
+        self.create_users_table()  # Make sure the "users" table exists
+
         username = self.entry_username.get()
         password = self.entry_password.get()
 
@@ -68,15 +103,64 @@ class LoginApp:
             conn.commit()
             print("Signup successful!")
 
+            # Update the signup button to act as a login button
+            self.signup_button.config(text="Login", command=self.login)
+
         # Close the database connection
         conn.close()
 
+    def enter_anonymous(self):
+        self.root.destroy()  # Close the current LoginApp window
+        root = tk.Tk()
+        start_game()
+        print("test_anonymous")
+        root.mainloop()
+
+    def create_widgets(self):
+        frame = ctk.CTkFrame(master=self.root, width=450, height=500)
+        frame.pack_propagate(False)
+        frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+        label = ctk.CTkLabel(master=frame, text="Hi! Please choose an option to login",
+                                        font=("Arial Greek", 20))
+        label.pack(pady=25)
+
+        # Define entry_username and entry_password as instance variables
+        self.entry_username = ctk.CTkEntry(master=frame, placeholder_text="Username", font=("Arial", 20))
+        self.entry_username.pack(pady=12, padx=10)
+
+        self.entry_password = ctk.CTkEntry(master=frame, placeholder_text="Password", show="*", font=("Arial", 20))
+        self.entry_password.pack(pady=12, padx=10)
+
+        button = ctk.CTkButton(master=frame, text="Login", command=self.login, font=("Arial", 20, "bold"),
+                                        fg_color="#E88655", hover_color="#EBA17C")
+        button.pack(pady=12, padx=10)
+
+        anonymous = ctk.CTkButton(master=frame, text="Anonymous", command=self.enter_anonymous,
+                                            font=("Arial", 20, "bold"), fg_color="#2190C7", hover_color="#5BB2DE")
+        anonymous.pack(pady=12, padx=10)
+
+        checkbox = ctk.CTkCheckBox(master=frame, text="Remember Me", font=("Arial", 20), fg_color="#E88655",
+                                            hover_color="#EBA17C")
+        checkbox.pack(pady=12, padx=10)
+
+        # Add a label above the "Sign In" button
+        label_dont_have_account = ctk.CTkLabel(master=frame, text="Don't have an account yet?",
+                                                        font=("Arial", 14))
+        label_dont_have_account.pack(pady=10)
+
+        # Add a "Sign In" button below the label
+        sign_in_button = ctk.CTkButton(master=frame, text="Sign Up", command=self.signup,
+                                                 font=("Arial", 20, "bold"), fg_color="#E88655", hover_color="#EBA17C")
+        sign_in_button.pack(pady=5)  # Specify a smaller pady value to keep the button visible
+
+
 def start_game():
-    # You can add your game script here or call the function that starts the game
-    print("Starting the game...")
+    game = FighterGame()
+    game.run_game()
 
 def main():
-    root = tk.Tk()
+    root = ctk.CTk()
     app = LoginApp(root)
     root.mainloop()
 
