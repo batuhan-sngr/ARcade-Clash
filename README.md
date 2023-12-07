@@ -1,6 +1,6 @@
-# Fighter Game
+# ARcade Clash
 
-Welcome to Fighter Game, an interactive gaming experience where your hands control the action! Defeat your opponent using hand gestures and enjoy the pixel art adventure.
+Welcome to ARcade Clash, an interactive gaming experience where your hands control the action! Defeat your opponent using hand gestures and enjoy the pixel art adventure.
 
 ## Table of Contents
 - [Overview](#overview)
@@ -15,7 +15,7 @@ Welcome to Fighter Game, an interactive gaming experience where your hands contr
 
 ## Overview
 
-Fighter Game is a retro-style game that uses hand recognition technology to let players control their characters through hand gestures. Immerse yourself in a pixelated world and defeat your opponent with well-timed punches and kicks.
+ARcade Clash is a retro-style game that uses hand recognition technology to let players control their characters through hand gestures. Immerse yourself in a pixelated world and defeat your opponent with well-timed punches and kicks.
 
 ## How to Play
 
@@ -51,7 +51,7 @@ Fighter Game is a retro-style game that uses hand recognition technology to let 
 
 Make sure to install the required libraries before running the game. You can install them using the following command:
 
-```bash
+```
 pip install -r requirements.txt
 ```
 The dependencies include:
@@ -65,17 +65,17 @@ Ensure that your hand movements are clear and distinct for accurate recognition.
 Getting Started
 Clone the repository:
 
-bash
+
 ```Copy code
 git clone https://github.com/your-username/fighter-game.git
 Install dependencies:
 ```
-bash
+
 Copy code
 ```pip install -r requirements.txt
 Run the game:
 ```
-bash
+
 ```Copy code
 python main.py
 ```
