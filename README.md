@@ -68,13 +68,16 @@ Clone the repository:
 
 ```Copy code
 git clone https://github.com/your-username/fighter-game.git
-Install dependencies:
 ```
+Install dependencies:
+
 
 Copy code
-```pip install -r requirements.txt
-Run the game:
 ```
+pip install -r requirements.txt
+```
+Run the game:
+
 
 ```Copy code
 python main.py
