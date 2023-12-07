@@ -55,8 +55,9 @@ class FighterGame:
         self.enemy_frame = 0
         self.enemy_health = 100
         self.enemy_rect = pygame.Rect(0, 0, 64, 47)  # Initialize enemy_rect
-        self.enemy_x, self.enemy_y = 600, 300
+        self.enemy_x, self.enemy_y = 200, 300
         self.animation_cooldown_enemy = 0
+        self.enemy_speed = 2
 
         # Player speed
         self.player_speed = 2
@@ -67,26 +68,22 @@ class FighterGame:
         self.THUMB_CMC = 1
         self.INDEX_FINGER_TIP = 8
         self.INDEX_FINGER_PIP = 6
-        self.INDEX_FINGER_CMC = 5
+        self.INDEX_FINGER_MCP = 5
         self.PINKY_TIP = 20
         self.PINKY_DIP = 19
         self.WRIST = 0
+        self.MIDDLE_FINGER_TIP = 12
 
         # Damage values
         self.damage_per_punch = 18
         self.damage_per_kick = 35
-        self.damage_per_hurt = 18
-
-        # Projectile system
-        self.projectile_speed = 5
-        self.projectiles = []
 
         # Resize factors for the camera window
         self.camera_width = 200
         self.camera_height = 150
 
         # Animation duration and cooldown
-        self.animation_duration = 0.7  # Adjust as needed
+        self.animation_duration = 2  # Adjust as needed
         self.animation_cooldown = 0
 
         # Initialize animation variables for player and enemy
@@ -143,6 +140,14 @@ class FighterGame:
         return math.sqrt((point2[0] - point1[0])**2 + (point2[1] - point1[1])**2)
 
     def run_game(self):
+        punch_cooldown = 100  # Set the punch cooldown in milliseconds (adjust as needed)
+        hurt_cooldown = 500  # Set the hurt animation cooldown in milliseconds (adjust as needed)
+        last_punch_time = 0
+        last_hurt_time = 0
+        # Cooldown for player actions
+        player_action_cooldown = 500  # milliseconds (adjust as needed)
+        last_player_action_time = 0
+
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -156,7 +161,6 @@ class FighterGame:
             results = self.hands.process(frame_rgb)
 
             frame.flags.writeable = True
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
             if results.multi_hand_landmarks:
                 for hand_landmarks in results.multi_hand_landmarks:
@@ -164,26 +168,68 @@ class FighterGame:
                     thumb_mcp = (hand_landmarks.landmark[self.THUMB_MCP].x, hand_landmarks.landmark[self.THUMB_MCP].y)
                     thumb_cmc = (hand_landmarks.landmark[self.THUMB_CMC].x, hand_landmarks.landmark[self.THUMB_CMC].y)
                     index_finger_tip = (hand_landmarks.landmark[self.INDEX_FINGER_TIP].x, hand_landmarks.landmark[self.INDEX_FINGER_TIP].y)
-                    index_finger_cmc = (hand_landmarks.landmark[self.INDEX_FINGER_CMC].x, hand_landmarks.landmark[self.INDEX_FINGER_CMC].y)
+                    index_finger_mcp = (hand_landmarks.landmark[self.INDEX_FINGER_MCP].x, hand_landmarks.landmark[self.INDEX_FINGER_MCP].y)
                     index_finger_pip = (hand_landmarks.landmark[self.INDEX_FINGER_PIP].x, hand_landmarks.landmark[self.INDEX_FINGER_PIP].y)
                     pinky_tip = (hand_landmarks.landmark[self.PINKY_TIP].x, hand_landmarks.landmark[self.PINKY_TIP].y)
                     pinky_dip = (hand_landmarks.landmark[self.PINKY_DIP].x, hand_landmarks.landmark[self.PINKY_DIP].y)
                     wrist = (hand_landmarks.landmark[self.WRIST].x, hand_landmarks.landmark[self.WRIST].y)
+                    middle_tip = (hand_landmarks.landmark[self.MIDDLE_FINGER_TIP].x, hand_landmarks.landmark[self.MIDDLE_FINGER_TIP].y)
 
-                    thumb_tip_to_index_cmc_distance = self.calculate_distance(thumb_tip, index_finger_cmc)
+
+                    thumb_tip_to_index_mcp_distance = self.calculate_distance(thumb_tip, index_finger_mcp)
                     index_tip_to_wrist_distance = self.calculate_distance(index_finger_tip, wrist)
                     index_finger_tip_to_pinky_tip_distance = self.calculate_distance(index_finger_tip, pinky_tip)
                     pinky_tip_to_dip_distance = self.calculate_distance(pinky_tip, pinky_dip)
                     pinky_tip_to_wrist_distance = self.calculate_distance(pinky_dip, wrist)
+                    thumb_tip_to_wrist_distance = self.calculate_distance(thumb_tip, wrist)
+                    middle_tip_to_wrist_distance = self.calculate_distance(middle_tip, wrist)
+                    # Check for cooldown on player actions
+                    current_time = pygame.time.get_ticks()
+                    if current_time - last_player_action_time < player_action_cooldown:
+                        continue  # Skip the rest of the loop if the player is on cooldown
 
-                    if thumb_tip_to_index_cmc_distance > 0.5 and index_tip_to_wrist_distance > 0.2:
-                        self.player1_action = "walk"
-                    elif pinky_tip_to_wrist_distance > 0.3 and index_finger_tip_to_pinky_tip_distance < 0.25:
-                        self.player1_action = "punch"
-                    elif thumb_tip[1] > thumb_mcp[1] and pinky_tip[1] > pinky_dip[1] and pinky_tip_to_dip_distance > 0.1 and pinky_tip_to_dip_distance < 0.25:
-                        self.player1_action = "kick"
-                    elif all(lm.y < thumb_tip[1] for lm in hand_landmarks.landmark[1:]):
-                        self.player1_action = "idle"
+                    # Adjust the punch collision detection
+                    punch_collision_rect = pygame.Rect(
+                        self.player1_x + self.player1_rect.width,  # Adjusted to the right edge of the player
+                        self.player1_y + self.player1_rect.height * 0.2,  # Adjusted for the punch height
+                        10,  # Width of the punch
+                        self.player1_rect.height * 0.6,  # Adjusted for the punch height
+                    )
+
+                    if current_time - last_punch_time > punch_cooldown:
+                        if index_tip_to_wrist_distance > 0.3 and middle_tip_to_wrist_distance > 0.3:
+                            self.player1_action = "walk"
+                            self.player1_x += self.player_speed
+                        elif thumb_tip_to_index_mcp_distance < 0.15:
+                            self.player1_action = "punch"
+                            # Check for collision with the enemy when punching
+                            if self.player1_action == "punch" and punch_collision_rect.colliderect(self.enemy_rect):
+                                self.enemy_health -= self.damage_per_punch
+                                self.enemy_action = "hurt"
+                                last_hurt_time = current_time
+                                print("Enemy Health:", self.enemy_health)
+
+                                # Set cooldown for player actions
+                                last_player_action_time = current_time
+                        elif thumb_tip_to_wrist_distance > 0.35 and pinky_tip_to_wrist_distance > 0.5:
+                            self.player1_action = "kick"
+                        elif all(lm.y < thumb_tip[1] for lm in hand_landmarks.landmark[1:]):
+                            self.player1_action = "idle"
+
+                        # Check for collision with the enemy when punching
+                        if self.player1_action == "punch" and punch_collision_rect.colliderect(self.enemy_rect):
+                            self.enemy_health -= self.damage_per_punch
+                            self.enemy_action = "hurt"
+                            last_hurt_time = current_time
+                            print("Enemy Health:", self.enemy_health)
+                    
+                    # Check for cooldown on hurt animation
+                    if current_time - last_hurt_time > hurt_cooldown:
+                        # If enemy health is zero, keep hurt animation at the last frame
+                        if self.enemy_health > 0:
+                            self.enemy_action = "idle"
+                            # Reset cooldown for player actions when hurt animation is complete
+                            last_player_action_time = 0
 
                     self.mp_drawing.draw_landmarks(
                         frame,
@@ -209,7 +255,7 @@ class FighterGame:
                 self.action_counter_player = 0
 
             # Update player animation frames
-            if self.animation_cooldown_player == 0:
+            if self.animation_cooldown_player == 0 and self.player1_action != "idle":
                 self.current_frame_player = (self.current_frame_player + 1) % len(self.actions_info_player[self.player1_action]["frames"])
 
             # Handle player animation cooldown
@@ -220,12 +266,27 @@ class FighterGame:
             if self.animation_cooldown_enemy == 0:
                 if self.enemy_action == "idle":
                     self.enemy_frame = (self.enemy_frame + 1) % len(self.idle_frames_enemy)
+                elif self.enemy_action == "hurt" and self.enemy_health > 0:
+                    # Keep the hurt animation at the last frame if enemy health is zero
+                    self.enemy_frame = min(self.enemy_frame, len(self.hurt_frames_enemy) - 1)
                 else:
-                    self.enemy_frame = (self.enemy_frame + 1) % len(self.actions_info_enemy[self.enemy_action]["frames"])
+                    self.enemy_frame = (self.enemy_frame + 1) % len(
+                        self.actions_info_enemy[self.enemy_action]["frames"])
 
             # Handle enemy animation cooldown
             if self.animation_cooldown_enemy > 0:
                 self.animation_cooldown_enemy -= 1
+
+            # Collision detection between player and enemy
+            player_rect = pygame.Rect(self.player1_x, self.player1_y, 37, 47)
+            enemy_rect = pygame.Rect(self.enemy_x, self.enemy_y, 38, 47)
+
+            if player_rect.colliderect(enemy_rect):
+                # Adjust player position to prevent overlap
+                if self.player1_x < self.enemy_x:
+                    self.player1_x = self.enemy_x - 38
+                else:
+                    self.player1_x = self.enemy_x + 38
 
             self.screen.fill((36, 36, 36))
             self.screen.blit(self.background, (0, 130))
@@ -247,7 +308,7 @@ class FighterGame:
             text = font.render(f"Health: {self.player1_health}", True, (0, 0, 0))
             self.screen.blit(text, (self.screen_width - 200, 10))
 
-            # Draw enemy with action
+           # Draw enemy with action
             if self.enemy_rect:
                 current_frame = self.extract_frame(self.enemy_action, self.enemy_frame, is_player=False)
                 self.screen.blit(current_frame, (self.enemy_x - 10, self.enemy_y - 10))
