@@ -53,7 +53,7 @@ Make sure to install the required libraries before running the game. You can ins
 
 ```bash
 pip install -r requirements.txt
-
+```
 The dependencies include:
 
 OpenCV
@@ -66,18 +66,19 @@ Getting Started
 Clone the repository:
 
 bash
-Copy code
+```Copy code
 git clone https://github.com/your-username/fighter-game.git
 Install dependencies:
-
+```
 bash
 Copy code
-pip install -r requirements.txt
+```pip install -r requirements.txt
 Run the game:
-
+```
 bash
-Copy code
+```Copy code
 python main.py
+```
 Enjoy the game!
 
 Contributing
