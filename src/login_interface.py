@@ -7,7 +7,7 @@ from fighter_game import FighterGame
 class LoginApp:
     def __init__(self, root):
         self.root = root
-        self.root.geometry("1300x700")
+        self.root.geometry("1410x940")
         self.center_window()
         self.root.configure(bg="#99CCFF") # Set appearance mode to dark
 
@@ -17,12 +17,16 @@ class LoginApp:
         self.remembered_username = tk.StringVar()
         self.load_remembered_username()
 
+        # Initialize StringVar for storing the selected camera index
+        self.selected_camera = tk.StringVar()
+        self.selected_camera.set("Default")  # Default value, change it as needed
+
     def center_window(self):
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
-        x_center = (screen_width - 1300) // 2
-        y_center = (screen_height - 700) // 2
-        self.root.geometry(f"1300x700+{x_center}+{y_center}")
+        x_center = (screen_width - 1410) // 2
+        y_center = (screen_height - 940) // 2
+        self.root.geometry(f"1410x940+{x_center}+{y_center}")
     
     def create_users_table(self):
         # Connect to the SQLite database
@@ -117,43 +121,42 @@ class LoginApp:
         root.mainloop()
 
     def create_widgets(self):
-        frame = ctk.CTkFrame(master=self.root, width=450, height=500)
+        frame = ctk.CTkFrame(master=self.root, width=800, height=650)
         frame.pack_propagate(False)
         frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
 
-        label = ctk.CTkLabel(master=frame, text="Hi! Please choose an option to login",
-                                        font=("Arial Greek", 20))
+        label = ctk.CTkLabel(master=frame, text="WELCOME TO ARCADE CLASH",
+                                        font=("Fixedsys", 40))
         label.pack(pady=25)
 
         # Define entry_username and entry_password as instance variables
-        self.entry_username = ctk.CTkEntry(master=frame, placeholder_text="Username", font=("Arial", 20))
+        self.entry_username = ctk.CTkEntry(master=frame, placeholder_text="Username", font=("Fixedsys", 25))
         self.entry_username.pack(pady=12, padx=10)
 
-        self.entry_password = ctk.CTkEntry(master=frame, placeholder_text="Password", show="*", font=("Arial", 20))
+        self.entry_password = ctk.CTkEntry(master=frame, placeholder_text="Password", show="*", font=("Fixedsys", 25))
         self.entry_password.pack(pady=12, padx=10)
 
-        button = ctk.CTkButton(master=frame, text="Login", command=self.login, font=("Arial", 20, "bold"),
+        button = ctk.CTkButton(master=frame, text="Login", command=self.login, font=("Fixedsys", 30, "bold"),
                                         fg_color="#E88655", hover_color="#EBA17C")
         button.pack(pady=12, padx=10)
 
         anonymous = ctk.CTkButton(master=frame, text="Anonymous", command=self.enter_anonymous,
-                                            font=("Arial", 20, "bold"), fg_color="#2190C7", hover_color="#5BB2DE")
+                                            font=("Fixedsys", 30, "bold"), fg_color="#2190C7", hover_color="#5BB2DE")
         anonymous.pack(pady=12, padx=10)
 
-        checkbox = ctk.CTkCheckBox(master=frame, text="Remember Me", font=("Arial", 20), fg_color="#E88655",
+        checkbox = ctk.CTkCheckBox(master=frame, text="Remember Me", font=("Fixedsys", 30), fg_color="#E88655",
                                             hover_color="#EBA17C")
         checkbox.pack(pady=12, padx=10)
 
         # Add a label above the "Sign In" button
         label_dont_have_account = ctk.CTkLabel(master=frame, text="Don't have an account yet?",
-                                                        font=("Arial", 14))
+                                                        font=("Fixedsys", 20))
         label_dont_have_account.pack(pady=10)
 
         # Add a "Sign In" button below the label
         sign_in_button = ctk.CTkButton(master=frame, text="Sign Up", command=self.signup,
-                                                 font=("Arial", 20, "bold"), fg_color="#E88655", hover_color="#EBA17C")
+                                                 font=("Fixedsys", 30, "bold"), fg_color="#E88655", hover_color="#EBA17C")
         sign_in_button.pack(pady=5)  # Specify a smaller pady value to keep the button visible
-
 
 def start_game():
     game = FighterGame()
