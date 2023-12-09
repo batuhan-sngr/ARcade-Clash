@@ -1,0 +1,5 @@
+opencv-python==4.5.3
+mediapipe==0.8.4
+pygame==2.0.1
+customtkinter==1.0.0
+tk==8.6.10
