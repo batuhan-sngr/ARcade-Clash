@@ -1,5 +1,6 @@
 import cv2
 import mediapipe as mp
+import tkinter as tk
 import pygame
 import sys
 import os
@@ -76,8 +77,8 @@ class FighterGame:
         self.MIDDLE_FINGER_TIP = 12
 
         # Damage values
-        self.damage_per_punch = 18
-        self.damage_per_kick = 35
+        self.damage_per_punch = 5
+        self.damage_per_kick = 10
 
         # Resize factors for the camera window
         self.camera_width = 200
@@ -141,24 +142,24 @@ class FighterGame:
         return math.sqrt((point2[0] - point1[0])**2 + (point2[1] - point1[1])**2)
 
     def run_game(self):
-        punch_cooldown = 5000  # Set the punch cooldown in milliseconds (adjust as needed)
-        hurt_cooldown = 500  # Set the hurt animation cooldown in milliseconds (adjust as needed)
-        enemy_walk_cooldown = 500  # milliseconds (adjust as needed)
+        self.player_punch_cooldown = 1000  # Set the punch cooldown for the player in milliseconds
+        self.player_kick_cooldown = 1500  # Set the kick cooldown for the player in milliseconds
+        self.last_player_punch_time = 0
+        self.last_player_kick_time = 0  # Set the punch cooldown in milliseconds (adjust as needed)
+        hurt_cooldown = 5000  # Set the hurt animation cooldown in milliseconds (adjust as needed)
+        enemy_walk_cooldown = 100  # milliseconds (adjust as needed)
         last_punch_time = pygame.time.get_ticks()
         last_hurt_time = 0
         last_enemy_walk_time = 0
+        player_punch_counter = 0
+        enemy_punch_counter = 0
+        self.enemy_punch_cooldown = 2000  # Set the punch cooldown for the enemy in milliseconds
+        self.last_enemy_punch_time = 0
+        player_kick_counter = 0
 
         # Cooldown for player actions
         player_action_cooldown = 500  # milliseconds (adjust as needed)
         last_player_action_time = 0
-
-        # Adjust the punch collision detection
-        punch_collision_rect = pygame.Rect(
-            self.player1_x + self.player1_rect.width,  # Adjusted to the right edge of the player
-            self.player1_y + self.player1_rect.height * 0.2,  # Adjusted for the punch height
-            10,  # Width of the punch
-            self.player1_rect.height * 0.6,  # Adjusted for the punch height
-        )        
 
         while True:
             for event in pygame.event.get():
@@ -194,40 +195,69 @@ class FighterGame:
                     pinky_tip_to_wrist_distance = self.calculate_distance(pinky_dip, wrist)
                     thumb_tip_to_wrist_distance = self.calculate_distance(thumb_tip, wrist)
                     middle_tip_to_wrist_distance = self.calculate_distance(middle_tip, wrist)
+
                     # Check for cooldown on player actions
                     current_time = pygame.time.get_ticks()
-                    if current_time - last_player_action_time < player_action_cooldown:
-                        continue  # Skip the rest of the loop if the player is on cooldown
+                    # if current_time - last_player_action_time < player_action_cooldown:
+                    #     self.player1_action = "idle"
+                    #     continue  # Skip the rest of the loop if the player is on cooldown
 
+                    print(thumb_tip_to_index_mcp_distance)
 
-
-                    if current_time - last_punch_time > punch_cooldown:
-                        if index_tip_to_wrist_distance > 0.3 and middle_tip_to_wrist_distance > 0.3:
+                    if index_tip_to_wrist_distance > 0.3 and middle_tip_to_wrist_distance > 0.3:
                             self.player1_action = "walk"
                             self.player1_x += self.player_speed
-                        elif thumb_tip_to_index_mcp_distance < 0.15:
-                            self.player1_action = "punch"
-                            # Check for collision with the enemy when punching
-                            if self.player1_action == "punch" and punch_collision_rect.colliderect(self.enemy_rect):
-                                self.enemy_health -= self.damage_per_punch
-                                self.enemy_action = "hurt"
-                                last_hurt_time = current_time
-                                print("Enemy Health:", self.enemy_health)
+                    # Check for punch action
+                    if current_time - last_punch_time > self.player_punch_cooldown:
+                        if thumb_tip_to_index_mcp_distance > 0.15 and player_punch_counter == 0:
+                            # Check for cooldown on player punch
+                            if current_time - self.last_player_punch_time > self.player_punch_cooldown:
+                                self.player1_action = "punch"
+                                player_punch_counter += 1
+
+                                # Check for collision with the enemy when punching
+                                if self.player1_rect.colliderect(self.enemy_rect):
+                                    self.enemy_health -= self.damage_per_punch
+                                    self.enemy_action = "hurt"
+                                    last_hurt_time = current_time
+                                    print("Enemy Health:", self.enemy_health)
+                                    if self.enemy_frame == min(self.enemy_frame, len(self.hurt_frames_enemy) - 1):
+                                        player_punch_counter = 0
+                                        self.enemy_action = "idle"
+
+                                    # Set cooldown for player punch
+                                    self.last_player_punch_time = current_time
 
                                 # Set cooldown for player actions
                                 last_player_action_time = current_time
-                        elif thumb_tip_to_wrist_distance > 0.35 and pinky_tip_to_wrist_distance > 0.5:
-                            self.player1_action = "kick"
+
+                        elif thumb_tip_to_wrist_distance > 0.35 and pinky_tip_to_wrist_distance > 0.5 and player_kick_counter == 0:
+                            # Check for cooldown on player kick
+                            if current_time - self.last_player_kick_time > self.player_kick_cooldown and self.player1_rect.colliderect(self.enemy_rect):
+                                self.player1_action = "kick"
+                                player_kick_counter += 1
+                                self.enemy_health -= self.damage_per_kick
+                                self.enemy_action = "hurt"
+                                last_hurt_time = current_time
+                                print("Enemy Health:", self.enemy_health)
+                                if self.enemy_frame == min(self.enemy_frame, len(self.hurt_frames_enemy) - 1):
+                                    player_kick_counter = 0
+                                    self.enemy_action = "idle"
+                                # Set cooldown for player kick
+                                self.last_player_kick_time = current_time
+
+                                # Set cooldown for player actions
+                                last_player_action_time = current_time
                         elif all(lm.y < thumb_tip[1] for lm in hand_landmarks.landmark[1:]):
                             self.player1_action = "idle"
                     
                     # Check for cooldown on hurt animation
-                    if current_time - last_hurt_time > hurt_cooldown:
-                        # If enemy health is zero, keep hurt animation at the last frame
-                        if self.enemy_health > 0:
-                            self.enemy_action = "idle"
-                            # Reset cooldown for player actions when hurt animation is complete
-                            last_player_action_time = 0
+                    # if current_time - last_hurt_time > hurt_cooldown:
+                    #     # If player health is zero, keep hurt animation at the last frame
+                    #     if self.player1_health > 0:
+                    #         # Reset cooldown for player actions when hurt animation is complete
+                    #         last_player_action_time = 0
+                    #         self.player1_action = "idle"
 
                     self.mp_drawing.draw_landmarks(
                         self.frame,
@@ -247,6 +277,15 @@ class FighterGame:
             small_frame = pygame.surfarray.make_surface(small_frame)
             self.frame = cv2.rotate(self.frame, cv2.ROTATE_90_CLOCKWISE)
 
+            # Update player position with screen boundaries
+            self.player1_x = max(0, min(self.player1_x, self.screen_width - 35))  # Ensure player stays within screen width
+            self.player1_y = max(0, min(self.player1_y, self.screen_height - 47))  # Ensure player stays within screen height
+            # Update enemy position with screen boundaries
+            self.enemy_x = max(0, min(self.enemy_x, self.screen_width - 35))  # Ensure enemy stays within screen width
+            self.enemy_y = max(0, min(self.enemy_y, self.screen_height - 47))  # Ensure enemy stays within screen height
+
+
+
             if self.player1_action != self.current_action_player:
                 # Reset the animation variables when a new action is detected
                 self.current_action_player = self.player1_action
@@ -255,9 +294,11 @@ class FighterGame:
 
             # Update player animation frames
             if self.animation_cooldown_player == 0 and self.player1_action != "idle":
-                self.current_frame_player = (self.current_frame_player + 1) % len(self.actions_info_player[self.player1_action]["frames"])
+                self.current_frame_player = (self.current_frame_player + 1) % len(
+                    self.actions_info_player[self.player1_action]["frames"]
+                )
 
-            # Handle player animation cooldown
+           # Handle player animation cooldown
             if self.animation_cooldown_player > 0:
                 self.animation_cooldown_player -= 1
 
@@ -270,7 +311,8 @@ class FighterGame:
                     self.enemy_frame = min(self.enemy_frame, len(self.hurt_frames_enemy) - 1)
                 else:
                     self.enemy_frame = (self.enemy_frame + 1) % len(
-                        self.actions_info_enemy[self.enemy_action]["frames"])
+                        self.actions_info_enemy[self.enemy_action]["frames"]
+                    )
 
             # Handle enemy animation cooldown
             if self.animation_cooldown_enemy > 0:
@@ -282,58 +324,41 @@ class FighterGame:
                 # Walk towards the player
                 if self.enemy_x < self.player1_x:
                     self.enemy_x += self.enemy_speed
+                    self.enemy_action = "walk"
                 elif self.enemy_x > self.player1_x:
                     self.enemy_x -= self.enemy_speed
-
+                    self.enemy_action = "walk"
                 # Reset cooldown for enemy walking
                 last_enemy_walk_time = current_time
-
-            # Check for cooldown on player actions
-            if current_time - last_player_action_time < player_action_cooldown:
-                continue  # Skip the rest of the loop if the player is on cooldown
-
-            # Adjust the punch collision detection for the enemy
-            punch_collision_rect_enemy = pygame.Rect(
-                self.enemy_x - 10,  # Adjusted to the left edge of the enemy
-                self.enemy_y + self.enemy_rect.height * 0.2,  # Adjusted for the punch height
-                10,  # Width of the punch
-                self.enemy_rect.height * 0.6,  # Adjusted for the punch height
-            )
-
-            # Check for punch action
-            if current_time - last_punch_time > punch_cooldown:
-                self.enemy_action = "punch"
-                # Check for collision with the player when punching
-                if self.enemy_action == "punch" and punch_collision_rect_enemy.colliderect(player_rect):
-                    self.player1_health -= self.damage_per_punch
+            
+            if self.player1_rect.colliderect(self.enemy_rect) and enemy_punch_counter == 0:
+                current_time = pygame.time.get_ticks()
+                # Check for cooldown on enemy punch
+                if current_time - self.last_enemy_punch_time > self.enemy_punch_cooldown:
+                    self.enemy_action = "punch"
                     self.player1_action = "hurt"
-                    last_hurt_time = current_time
-                    print("Player Health:", self.player1_health)
-
-                    # Set cooldown for player actions
-                    last_player_action_time = current_time
-
-                # Reset cooldown for punch action
-                last_punch_time = current_time
-
-            # Check for cooldown on hurt animation
-            if current_time - last_hurt_time > hurt_cooldown:
-                # If player health is zero, keep hurt animation at the last frame
-                if self.player1_health > 0:
-                    self.player1_action = "idle"
-                    # Reset cooldown for player actions when hurt animation is complete
-                    last_player_action_time = 0
-
+                    enemy_punch_counter += 1
+                    if self.player1_frame == min(self.player1_frame, len(self.hurt_frames_player) - 1):
+                        self.player1_health -= self.damage_per_punch
+                        enemy_punch_counter = 0
+                        self.player1_action = "idle"
+                    if self.player1_health <= 0:
+                        self.player1_health = 0
+                        pygame.quit()
+                        sys.exit()
+                    # Set cooldown for enemy punch
+                    self.last_enemy_punch_time = current_time
+        
             # Collision detection between player and enemy
-            player_rect = pygame.Rect(self.player1_x, self.player1_y, 35, 47)
-            enemy_rect = pygame.Rect(self.enemy_x, self.enemy_y, 35, 47)
+            self.player1_rect = pygame.Rect(self.player1_x, self.player1_y, 35, 47)
+            self.enemy_rect = pygame.Rect(self.enemy_x, self.enemy_y, 35, 47)
 
-            if player_rect.colliderect(enemy_rect):
+            if self.player1_rect.colliderect(self.enemy_rect):
                 # Adjust player position to prevent overlap
                 if self.player1_x < self.enemy_x:
-                    self.player1_x = self.enemy_x - 38
+                    self.player1_x = self.enemy_x - 35
                 else:
-                    self.player1_x = self.enemy_x + 38
+                    self.player1_x = self.enemy_x + 35
 
             self.screen.fill((36, 36, 36))
             self.screen.blit(self.background, (0, 0))
