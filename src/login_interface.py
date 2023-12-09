@@ -1,8 +1,7 @@
 import customtkinter as ctk
 import tkinter as tk
-from getpass import getpass
 import sqlite3
-from fighter_game import FighterGame
+from src.fighter_game import FighterGame
 
 class LoginApp:
     def __init__(self, root):

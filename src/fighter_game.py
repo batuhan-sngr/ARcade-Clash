@@ -9,7 +9,7 @@ import math
 class FighterGame:
     def __init__(self):
         
-        self.cap = cv2.VideoCapture(1)  # 0 represents the default camera, you may need to change it based on your setup
+        self.cap = cv2.VideoCapture(0)  # 0 represents the default camera, you may need to change it based on your setup
         self.ret, self.frame = self.cap.read()
 
         # Initialize Mediapipe
