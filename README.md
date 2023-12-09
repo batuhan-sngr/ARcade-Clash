@@ -35,10 +35,11 @@ ARcade Clash is a retro-style game that uses hand recognition technology to let 
    - Optimize lighting conditions for accurate hand recognition.
 
 2. **Gameplay:**
+   - Run the hand_fighter.py in your IDE or in CMD
    - Move your hand to control your character's actions.
    - Perform gestures to trigger attacks and defend against your opponent.
 
-3. **Objective:**
+4. **Objective:**
    - Defeat your opponent by using well-timed punches and kicks.
    - Watch out for your health; don't let it reach zero!
 
@@ -59,6 +60,10 @@ The dependencies include:
 OpenCV
 MediaPipe
 Pygame
+customtkinter
+tkinter
+sqlite3
+
 Troubleshooting
 If the game doesn't respond, check your camera connection and lighting conditions.
 Ensure that your hand movements are clear and distinct for accurate recognition.
@@ -67,25 +72,14 @@ Clone the repository:
 
 
 ```Copy code
-git clone https://github.com/your-username/fighter-game.git
+git clone https://github.com/batuhan-sngr/ARcade-Clash.git
 ```
-Install dependencies:
 
-
-Copy code
-```
-pip install -r requirements.txt
-```
 Run the game:
-
-
 ```Copy code
-python main.py
+python hand_fighter.py
 ```
 Enjoy the game!
-
-Contributing
-If you'd like to contribute to Fighter Game, please follow our Contribution Guidelines.
 
 License
 This project is licensed under the MIT License.
