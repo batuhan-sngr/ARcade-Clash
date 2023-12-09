@@ -1,8 +1,8 @@
-import subprocess
-import sys
+from src.login_interface import LoginInterface
 
 def run_login():
-    subprocess.run([sys.executable, 'src/login_interface.py'])
+    login_interface = LoginInterface()
+    login_interface.run()
 
 if __name__ == "__main__":
     run_login()
