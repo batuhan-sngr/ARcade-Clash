@@ -72,7 +72,7 @@ Clone the repository:
 
 
 ```Copy code
-git clone https://github.com/your-username/fighter-game.git
+git clone https://github.com/batuhan-sngr/ARcade-Clash.git
 ```
 
 Run the game:
