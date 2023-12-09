@@ -21,7 +21,7 @@ ARcade Clash is a retro-style game that uses hand recognition technology to let 
 
 ### Controls
 - **Walk:** Move your hand in a walking motion (thumb tip to index MCP).
-- **Punch:** Point your index finger up and make a punching motion.
+- **Punch:** Extend just your thumb finger.
 - **Kick:** Extend your thumb towards your wrist while raising your pinky.
 
 ### Health
