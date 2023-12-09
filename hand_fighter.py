@@ -1,8 +1,10 @@
-from src.login_interface import LoginInterface
+from src.login_interface import LoginApp
+import customtkinter as ctk
 
 def run_login():
-    login_interface = LoginInterface()
-    login_interface.run()
+    root = ctk.CTk()
+    login_interface = LoginApp(root)
+    root.mainloop()
 
 if __name__ == "__main__":
     run_login()

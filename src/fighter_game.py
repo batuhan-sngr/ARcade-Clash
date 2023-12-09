@@ -9,7 +9,7 @@ import math
 class FighterGame:
     def __init__(self):
         
-        self.cap = cv2.VideoCapture(0)  # 0 represents the default camera, you may need to change it based on your setup
+        self.cap = cv2.VideoCapture(1)  # 0 represents the default camera, you may need to change it based on your setup
         self.ret, self.frame = self.cap.read()
 
         # Initialize Mediapipe
@@ -49,13 +49,13 @@ class FighterGame:
         self.player1_frame = 0
         self.player1_health = 100
         self.player1_rect = pygame.Rect(0, 0, 64, 47)  # Initialize player1_rect
-        self.player1_x, self.player1_y = 300, 750
+        self.player1_x, self.player1_y = 450, 750
         self.animation_cooldown_player = 0
 
         # Enemy attributes
         self.enemy_action = "idle"
         self.enemy_frame = 0
-        self.enemy_health = 100
+        self.enemy_health = 20
         self.enemy_rect = pygame.Rect(0, 0, 64, 47)  # Initialize enemy_rect
         self.enemy_x, self.enemy_y = 600, 750
         self.animation_cooldown_enemy = 0
@@ -173,6 +173,10 @@ class FighterGame:
             frame_rgb = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
             results = self.hands.process(frame_rgb)
 
+            # Rotate the camera frame
+            #self.frame = cv2.rotate(self.frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+
             self.frame.flags.writeable = True
 
             if results.multi_hand_landmarks:
@@ -214,7 +218,7 @@ class FighterGame:
                             if current_time - self.last_player_punch_time > self.player_punch_cooldown:
                                 self.player1_action = "punch"
                                 player_punch_counter += 1
-
+                                
                                 # Check for collision with the enemy when punching
                                 if self.player1_rect.colliderect(self.enemy_rect):
                                     self.enemy_health -= self.damage_per_punch
